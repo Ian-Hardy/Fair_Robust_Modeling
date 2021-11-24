@@ -1,4 +1,4 @@
-# Fair_Robust_Modeling
+# Fair Robust Modeling
 
 An implementation of the 2021 paper "To be Robust or to be Fair: Towards Fairness in Adversarial Training" (https://arxiv.org/pdf/2010.06121.pdf)
 
