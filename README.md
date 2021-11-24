@@ -10,6 +10,6 @@ The order the notebooks should run generally follows what I did in implementing 
 
 2. Run the FRL_Remargin_fashion_MNIST notebook second, which implements the authors' first pass algorithm for reweighing each class by their separate natural and boundary errors (see paper for details.)
 
-3. 2. Run the FRL_Reweight_fashion_MNIST notebook last, which implements the authors' second pass algorithm for remargining the epsilon of each class' adversarial examples based on their boundary errors (see paper for details.)
+3. Run the FRL_Reweight_fashion_MNIST notebook last, which implements the authors' second pass algorithm for remargining the epsilon of each class' adversarial examples based on their boundary errors (see paper for details.)
 
 Most everything should be able to run without a Colab+ subscription. 
