@@ -373,7 +373,7 @@ def update_epislon(model,
                 t2,
                 val_loader,
                 device, 
-                early_stop=20m
+                early_stop=20
                 ):
     #instantiate label_wise natural and boundary error
     r_nat_i = torch.zeros(10).to(device)
@@ -463,8 +463,6 @@ def remargin_for_robust_fairness(model,
     curr_lr = learning_rate
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
-            # if i > 3:
-            #     return model
 
             images = images.to(device)
             labels = labels.to(device)
@@ -476,30 +474,57 @@ def remargin_for_robust_fairness(model,
             adv_outputs =  model(adv_images)
             
             eps, phi = update_epislon(model = model, 
-                                    atk = atk,
-                                    phi = torch.stack([torch.ones(10),torch.ones(10)]).cuda(),
-                                    eps = torch.zeros(10).to(device) + 8/255,
-                                    a1 = a1,
-                                    a2 = a2,
-                                    t1 = t2,
-                                    t2 = t2,
-                                    val_loader = val_loader, 
-                                    device = device, 
-                                    early_stop=20)
+                                        atk = atk,
+                                        phi = torch.stack([torch.ones(10),torch.ones(10)]).cuda(),
+                                        eps = torch.zeros(10).to(device) + 8/255,
+                                        a1 = a1,
+                                        a2 = a2,
+                                        t1 = t2,
+                                        t2 = t2,
+                                        val_loader = val_loader, 
+                                        device = device, 
+                                        early_stop=20)
             
-            ## Create adv images with new epsilons
+            # First define a set of clean images and a set of images to perturb
+            # Define attack set for random half of images in batch
+            atk_inds = np.random.choice(range(images.shape[0]), size=images.shape[0]//2, replace=False)
+            atk_imgs = images[atk_inds]
+            atk_lbls = labels[atk_inds]
+            # Define original image set
+            orig_inds = [ind for ind in range(images.shape[0]) if ind not in atk_inds]
+            orig_imgs = images[orig_inds]
+            orig_lbls = labels[orig_inds]
+
+            # Create class-wise adv images with the epsilons calculated above for the attack set
+            # (track labels too)
             eps_atks = []
+            eps_lbls = []
             for j in range(len(eps)):
-                inds = torch.where(labels == j)
+                inds = torch.where(atk_lbls == j)
                 atk_j = torchattacks.PGD(model, eps=eps[j], alpha=1/255, steps=20, random_start=True)
-                eps_atks.append(atk_j(images[inds], labels[inds]))
+                eps_atks.append(atk_j(atk_imgs[inds], atk_lbls[inds]))
+                eps_lbls.append(atk_lbls[inds])
+            
+            # concatenate back together adversarial images
             adv_eps_images = torch.cat(eps_atks)
-            indices = torch.randperm(len(adv_eps_images))
-            adv_eps_images = adv_eps_images[indices]
-            outputs_eps = model(adv_eps_images)
+            adv_eps_lbls = torch.cat(eps_lbls)
 
+            # combine clean and classwise adversarially perturbed images
+            mixed_set = torch.cat((adv_eps_images, orig_imgs))
+            mixed_labels = torch.cat((adv_eps_lbls, orig_lbls))
+            
+            #shuffle -- create random permutation of indices
+            indices = torch.randperm(len(mixed_set))
+            mixed_set = mixed_set[indices]
+            mixed_labels = mixed_labels[indices]
+            # print(labels.shape)
+            # print(mixed_labels.shape)
+            
+            # Calculate model outputs on mixed clean/adversarial images
+            outputs_eps = model(mixed_set)
+
+            # Softmax phi, as before
             nat_phi = sm(phi[0])
-
 
             criterion1 = nn.CrossEntropyLoss(weight=nat_phi)
             loss1 = criterion1(outputs, labels)
